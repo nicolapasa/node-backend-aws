@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tabella MySQL</title>
+  <style>
+    body { font: 16px system-ui, sans-serif; margin: 40px auto; padding: 0 24px; max-width: 1100px; color: #182333; background: #f5f7fa; }
+    h1 { margin-bottom: 8px; } p { color: #526074; }
+    button { padding: 10px 16px; border: 0; border-radius: 6px; background: #2459d3; color: white; cursor: pointer; }
+    button:disabled { opacity: .45; cursor: default; }
+    .table { overflow: auto; margin: 24px 0; background: white; border-radius: 8px; }
+    table { border-collapse: collapse; width: 100%; text-align: left; }
+    th, td { padding: 12px 16px; border-bottom: 1px solid #e5e9ef; white-space: nowrap; }
+    th { background: #eaf0fa; } nav { display: flex; gap: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Tabella MySQL</h1>
+  <p>Dati caricati dal database tramite l’API Node.js.</p>
+  <button id="refresh">Aggiorna</button>
+  <p id="status" role="status" aria-live="polite"></p>
+  <div class="table"><table aria-label="Dati MySQL"><thead></thead><tbody></tbody></table></div>
+  <nav aria-label="Paginazione"><button id="prev">Precedente</button><button id="next">Successiva</button></nav>
+  <script>
+    let offset = 0;
+    const limit = 50;
+    const status = document.querySelector('#status');
+    const prev = document.querySelector('#prev');
+    const next = document.querySelector('#next');
+    const refresh = document.querySelector('#refresh');
+    async function load() {
+      prev.disabled = next.disabled = refresh.disabled = true;
+      status.textContent = 'Caricamento…';
+      document.querySelector('thead').replaceChildren();
+      document.querySelector('tbody').replaceChildren();
+      try {
+        const response = await fetch(`/api/rows?limit=${limit}&offset=${offset}`);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        const header = document.createElement('tr');
+        for (const column of result.columns) {
+          const th = document.createElement('th');
+          th.textContent = column;
+          header.append(th);
+        }
+        document.querySelector('thead').append(header);
+        for (const row of result.data) {
+          const tr = document.createElement('tr');
+          for (const column of result.columns) {
+            const td = document.createElement('td');
+            const value = row[column];
+            td.textContent = value === null ? 'NULL' : typeof value === 'object' ? JSON.stringify(value) : String(value);
+            tr.append(td);
+          }
+          document.querySelector('tbody').append(tr);
+        }
+        status.textContent = result.data.length ? `Righe ${offset + 1}–${offset + result.data.length}` : 'Nessun dato da visualizzare.';
+        next.disabled = result.data.length < limit;
+      } catch (error) {
+        status.textContent = error.message || 'Errore di connessione.';
+      } finally {
+        prev.disabled = offset === 0;
+        refresh.disabled = false;
+      }
+    }
+    refresh.onclick = () => load();
+    prev.onclick = () => { offset = Math.max(0, offset - limit); load(); };
+    next.onclick = () => { offset += limit; load(); };
+    load();
+  </script>
+</body>
+</html>
